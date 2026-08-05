@@ -15,6 +15,7 @@ public class UserController {
     @GetMapping(value = "/get/details")
     public ResponseEntity<?> getUserDetails(){
 
+
         return ResponseEntity.ok("User Details");
     }
 }
