@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
 
+    
     @GetMapping(value = "/get/details")
     public ResponseEntity<?> getUserDetails(){
 
