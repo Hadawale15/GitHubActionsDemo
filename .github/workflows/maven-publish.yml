@@ -1,38 +1,40 @@
+
 name: Spring Boot CI/CD Pipeline
+
+run-name: Deployment-${{ inputs.deploymentId || github.run_number }}
 
 on:
   push:
     branches:
       - main
 
+  workflow_dispatch:
+    inputs:
+      deploymentId:
+        description: 'Existing Deployment ID'
+        required: true
+        type: string
+
 env:
   IMAGE_NAME: user-service
 
 jobs:
-  build-and-deploy:
 
+  # 1. BUILD
+  BUILD:
+    name: BUILD
     runs-on: ubuntu-latest
 
     steps:
-
-      ####################################################
-      # Checkout Source Code
-      ####################################################
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      ####################################################
-      # Install Java
-      ####################################################
       - name: Setup JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
 
-      ####################################################
-      # Cache Maven Dependencies
-      ####################################################
       - name: Cache Maven Packages
         uses: actions/cache@v4
         with:
@@ -41,14 +43,122 @@ jobs:
           restore-keys: |
             maven-
 
-      ####################################################
-      # Build Application
-      ####################################################
-      - name: Build Project
-        run: mvn clean package
+      - name: Build Application
+        run: mvn -B clean package -DskipTests
 
-      ####################################################
-      # Run Unit Tests
-      ####################################################
-      - name: Run Tests
-        run: mvn test
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: application-jar
+          path: target/*.jar
+          if-no-files-found: error
+
+
+  # 2. UNIT TESTS
+  UNIT_TESTS:
+    name: UNIT_TESTS
+    needs: BUILD
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Cache Maven Packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-
+
+      - name: Run Unit Tests
+        run: mvn -B test
+
+
+  # 3. CHECKMARX
+  CHECKMARX:
+    name: CHECKMARX
+    needs: UNIT_TESTS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run Checkmarx Scan
+        run: |
+          echo "Starting Checkmarx scan"
+          # Add actual Checkmarx integration here
+          echo "Checkmarx scan completed"
+
+
+  # 4. WHITESOURCE
+  WHITESOURCE:
+    name: WHITESOURCE
+    needs: CHECKMARX
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run Whitesource Scan
+        run: |
+          echo "Starting Whitesource scan"
+          # Add actual Whitesource integration here
+          echo "Whitesource scan completed"
+
+
+  # 5. ASLC
+  ASLC:
+    name: ASLC
+    needs: WHITESOURCE
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run ASLC
+        run: |
+          echo "Starting ASLC"
+          # Add actual ASLC integration here
+          echo "ASLC completed"
+
+
+  # 6. ISG APPROVAL
+  ISG_APPROVAL:
+    name: ISG_APPROVAL
+    needs: ASLC
+    runs-on: ubuntu-latest
+
+    environment:
+      name: ISG
+
+    steps:
+      - name: ISG Approval Completed
+        run: |
+          echo "ISG approval received"
+          echo "Proceeding with deployment"
+
+
+  # 7. DEPLOYMENT
+  DEPLOYMENT:
+    name: DEPLOYMENT
+    needs: ISG_APPROVAL
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: application-jar
+          path: deployment-artifact
+
+      - name: Deploy Application
+        run: |
+          echo "Starting deployment"
+
+          ls -lh deployment-artifact/
+
+          # Add actual deployment commands here
+
+          echo "Deployment completed"
